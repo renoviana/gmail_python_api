@@ -14,7 +14,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import base64
 
-bot = telebot.TeleBot(telebotkey.token)
+bot = telebot.TeleBot(telebotdata.token)
+
 SCOPES = ['https://mail.google.com/']
 
 if __name__ == '__main__':
