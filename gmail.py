@@ -1,46 +1,69 @@
 from __future__ import print_function
 import pickle
 import os.path
+
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from apiclient import errors, discovery
+
 import telebot
-import telebotkey
+import telebotdata
+
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import base64
 
 bot = telebot.TeleBot(telebotkey.token)
-
-# If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://mail.google.com/']
-service = ''
+
+if __name__ == '__main__':
+    main()
 
 
 def main():
-    global service
     service = auth()
-    # Call the Gmail API
-    naolidos = getUnreadEmails()
-    if('messages' in naolidos):
-        data = [sendEmailByTelegram(getEmailById(message['id']))
-                for message in naolidos['messages']]
-    setAsRead()
 
 
-def getEmailById(id):
+def getEmailById(service, id):
     return Email(service.users().messages().get(
         userId='me', id=id).execute())
 
 
-def setEmailAsRead(threadId):
+def sendEmail(service, message):
+    try:
+        message = (service.users().messages().send(
+            userId='me', body=message).execute())
+        print('Message Id: %s' % message['id'])
+        return message
+    except errors.HttpError as error:
+        print('An error occurred: %s' % error)
+
+
+def createEmail(sender, to, subject, msgHtml, msgPlain):
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = subject
+    msg['From'] = sender
+    msg['To'] = to
+    msg.attach(MIMEText(msgPlain, 'plain'))
+    msg.attach(MIMEText(msgHtml, 'html'))
+    raw = base64.urlsafe_b64encode(msg.as_bytes())
+    raw = raw.decode()
+    body = {'raw': raw}
+    return body
+
+
+def setEmailAsRead(service, threadId):
     service.users().threads().modify(userId='me', id=threadId,
                                      body={'removeLabelIds': ['UNREAD'], 'addLabelIds': []}).execute()
 
 
-def sendEmailByTelegram(email):
+def sendEmailByTelegram(service, email, chat_id):
     bot.send_message(
-        chat_id=411321208, text="{}\n{}\n{}".format(email.titulo, email.hora, email.de))
+        chat_id=chat_id, text="{}\n{}\n{}".format(email.titulo, email.hora, email.de))
 
 
-def getUnreadEmails():
+def getUnreadEmails(service):
     return service.users().messages().list(userId='me', q="is:unread").execute()
 
 
@@ -75,8 +98,3 @@ class Email:
                 self.hora = header['value']
             elif(header['name'] == 'Reply-To'):
                 self.de = header['value']
-
-
-if __name__ == '__main__':
-    main()
-# [END gmail_quickstart]
